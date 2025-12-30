@@ -16,6 +16,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Increased limit for contract content
 
 const SECRET = process.env.JWT_SECRET || "supersecretkey";
+const RAG_SERVICE_URL = process.env.RAG_SERVICE_URL || 'http://localhost:8000';
 
 // Handle __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -1193,7 +1194,7 @@ app.put("/api/admin/contract-templates/:id", requireAdmin, async (req, res) => {
 app.post("/api/chat", async (req, res) => {
   try {
     const fetch = (await import('node-fetch')).default;
-    const response = await fetch("http://localhost:8000/chat", {
+    const response = await fetch(`${RAG_SERVICE_URL}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(req.body),
@@ -1216,7 +1217,7 @@ app.get("/api/search", async (req, res) => {
   try {
     const fetch = (await import('node-fetch')).default;
     const queryParams = new URLSearchParams(req.query);
-    const response = await fetch(`http://localhost:8000/search?${queryParams}`, {
+    const response = await fetch(`${RAG_SERVICE_URL}/search?${queryParams}`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
     });
@@ -1288,19 +1289,7 @@ app.listen(PORT, async () => {
   } else {
     console.log(`\nEmail service not configured or failed`);
     console.log(`Reset codes will be displayed in console for testing`);
-    console.log(`\nTo enable email service:`);
-    console.log(`1. Create a .env file in your project root`);
-    console.log(`2. Add: EMAIL_USER=your-email@gmail.com`);
-    console.log(`3. Add: EMAIL_PASS=your-gmail-app-password`);
-    console.log(`4. Restart the server`);
   }
-  
-  console.log(`\nContract System Features:`);
-  console.log(`6 contract templates (Rental, Employment, Service, Sales, NDA, Partnership)`);
-  console.log(`Dynamic form generation`);
-  console.log(`Contract preview and PDF export`);
-  console.log(`Contract management and analytics`);
-  console.log(`Admin template management`);
   
   console.log(`\nServer ready for requests!\n`);
 });
