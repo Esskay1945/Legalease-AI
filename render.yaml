@@ -1,0 +1,40 @@
+services:
+  # Node.js Backend Service
+  - type: web
+    name: legalease-backend
+    runtime: node
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: INDIAN_KANOON_API_KEY
+        sync: false
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+    healthCheckPath: /api/profile
+
+  # Python RAG Service
+  - type: web
+    name: legalease-rag
+    runtime: python
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn rag_service:app --host 0.0.0.0 --port 10000
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: INDIAN_KANOON_API_KEY
+        sync: false
+    healthCheckPath: /health

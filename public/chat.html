@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>LegalEase · AI Chat</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .chat-window {
+      height: 400px;
+      overflow-y: auto;
+      padding: 1rem;
+      background: rgba(255,255,255,0.05);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 1rem;
+    }
+    .chat-msg {
+      margin: 0.5rem 0;
+      padding: 0.7rem 1rem;
+      border-radius: 14px;
+      max-width: 80%;
+    }
+    .chat-msg.user {
+      background: linear-gradient(135deg, #6a5cff, #1ea7ff);
+      color: white;
+      margin-left: auto;
+      text-align: right;
+    }
+    .chat-msg.ai {
+      background: rgba(255,255,255,0.1);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .chat-input-container {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      padding: 12px 16px;
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      max-width: 350px;
+    }
+    .notification.success { background: linear-gradient(135deg, #2ed573, #1e90ff); }
+    .notification.error { background: linear-gradient(135deg, #ff4757, #ff3742); }
+    .notification.info { background: linear-gradient(135deg, #6a5cff, #1ea7ff); }
+  </style>
+</head>
+<body>
+  <script>
+    if (!localStorage.getItem("token")) {
+      window.location.href = "login.html";
+    }
+  </script>
+
+  <div class="container" style="max-width: 800px; margin: 2rem auto; padding: 1rem;">
+    <div class="glass-card" style="padding: 2rem;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+        <h1 class="text-gradient" style="margin: 0;">LegalEase AI Chat</h1>
+        <a href="index.html" class="btn">← Back to Dashboard</a>
+      </div>
+      
+      <div id="chatWindow" class="chat-window">
+        <div class="chat-msg ai">👋 Hi! I'm LegalEase AI. How can I help you with your legal questions today?</div>
+      </div>
+      
+      <div class="chat-input-container">
+        <input 
+          id="chatInput" 
+          class="input" 
+          placeholder="Ask about legal cases, property disputes, contracts..."
+          style="flex: 1;"
+        />
+        <button id="sendBtn" class="btn btn-legal">Send</button>
+      </div>
+      
+      <div id="loadingIndicator" style="display: none; text-align: center; margin-top: 1rem;">
+        <span class="text-muted">🔄 Searching legal database...</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Simple notification function
+    function showNotification(message, type = 'info') {
+      const existing = document.querySelectorAll('.notification');
+      existing.forEach(n => n.remove());
+      
+      const notification = document.createElement('div');
+      notification.className = `notification ${type}`;
+      notification.innerHTML = `
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()" style="background:none;border:none;color:inherit;cursor:pointer;margin-left:10px;">×</button>
+      `;
+      
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 4000);
+    }
+
+    // Chat functionality
+    const chatWindow = document.getElementById('chatWindow');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+
+    function addMessage(sender, text) {
+      const div = document.createElement('div');
+      div.className = `chat-msg ${sender === 'You' ? 'user' : 'ai'}`;
+      div.textContent = text;
+      chatWindow.appendChild(div);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    function addHTMLMessage(sender, html) {
+      const div = document.createElement('div');
+      div.className = `chat-msg ${sender === 'You' ? 'user' : 'ai'}`;
+      div.innerHTML = html;
+      chatWindow.appendChild(div);
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      // Add user message
+      addMessage('You', message);
+      chatInput.value = '';
+      
+      // Show loading
+      loadingIndicator.style.display = 'block';
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending...';
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ message: message })
+        });
+
+        const data = await response.json();
+        console.log('Response:', data);
+
+        if (data.response) {
+          addMessage('LegalEase AI', data.response);
+          
+          // Show sources if available
+          if (data.sources && data.sources.length > 0) {
+            let sourcesHTML = '<br><strong>📚 Sources:</strong><br>';
+            data.sources.forEach(source => {
+              if (source.type === 'indian_kanoon') {
+                sourcesHTML += `• <strong>${source.title}</strong> (Indian Kanoon)<br>`;
+                if (source.url) {
+                  sourcesHTML += `  <a href="${source.url}" target="_blank" style="color: #6a5cff;">View Case →</a><br>`;
+                }
+              } else {
+                sourcesHTML += `• <strong>${source.title}</strong> - ${source.court} (${source.year})<br>`;
+              }
+            });
+            addHTMLMessage('LegalEase AI', sourcesHTML);
+          }
+          
+          showNotification('Response received successfully!', 'success');
+        } else {
+          addMessage('LegalEase AI', 'Sorry, I couldn\'t process your request. Please try again.');
+          showNotification('Failed to get response', 'error');
+        }
+
+      } catch (error) {
+        console.error('Chat error:', error);
+        addMessage('LegalEase AI', '⚠️ Sorry, there was an error connecting to the legal database. Please try again.');
+        showNotification('Connection error - please try again', 'error');
+      } finally {
+        // Hide loading
+        loadingIndicator.style.display = 'none';
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send';
+      }
+    }
+
+    // Event listeners
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+
+    // Focus on input when page loads
+    chatInput.focus();
+  </script>
+</body>
+</html>
